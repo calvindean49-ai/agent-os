@@ -1,0 +1,5 @@
+node_modules/
+dist-desk/
+.agent-os/
+*.log
+.DS_Store

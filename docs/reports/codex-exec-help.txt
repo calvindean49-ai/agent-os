@@ -1,0 +1,220 @@
+# Measured on Calvin's Mac, 17 Sep 2026. `codex --version` → codex-cli 0.154.0
+# Sources: `codex exec --help` and `codex exec review --help`, pasted verbatim,
+# then two trial runs from `~` (not a git repo), also verbatim at the end.
+
+Run Codex non-interactively
+
+Usage: codex exec [OPTIONS] [PROMPT]
+       codex exec [OPTIONS] <COMMAND> [ARGS]
+
+Commands:
+  resume  Resume a previous session by id or pick the most recent with --last
+  fork    Fork a previous session by id into a new session
+  review  Run a code review against the current repository
+  help    Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [PROMPT]
+          Initial instructions for the agent. If not provided as an argument (or if `-` is used), instructions are read
+          from stdin. If stdin is piped and a prompt is also provided, stdin is appended as a `<stdin>` block
+
+Options:
+  -c, --config <key=value>
+          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`. Use a dotted path
+          (`foo.bar.baz`) to override nested values. The `value` portion is parsed as TOML. If it fails to parse as
+          TOML, the raw string is used as a literal.
+
+          Examples: - `-c model="o3"` - `-c 'sandbox_permissions=["disk-full-read-access"]'` - `-c
+          shell_environment_policy.inherit=all`
+
+      --enable <FEATURE>
+          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+
+      --disable <FEATURE>
+          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`
+
+      --strict-config
+          Error out when config.toml contains fields that are not recognized by this version of Codex
+
+  -i, --image <FILE>...
+          Optional image(s) to attach to the initial prompt
+
+  -m, --model <MODEL>
+          Model the agent should use
+
+      --oss
+          Use open-source provider
+
+      --local-provider <OSS_PROVIDER>
+          Specify which local provider to use (lmstudio or ollama). If not specified with --oss, will use config default
+          or show selection
+
+  -p, --profile <CONFIG_PROFILE_V2>
+          Layer $CODEX_HOME/<name>.config.toml on top of the base user config
+
+  -s, --sandbox <SANDBOX_MODE>
+          Select the sandbox policy to use when executing model-generated shell commands
+
+          [possible values: read-only, workspace-write, danger-full-access]
+
+      --approve-for-me
+          Route approval requests through automatic review using the workspace-write sandbox
+
+      --dangerously-bypass-approvals-and-sandbox
+          Skip all confirmation prompts and execute commands without sandboxing. EXTREMELY DANGEROUS. Intended solely
+          for running in environments that are externally sandboxed
+
+      --dangerously-bypass-hook-trust
+          Run enabled hooks without requiring persisted hook trust for this invocation. DANGEROUS. Intended only for
+          automation that already vets hook sources
+
+  -C, --cd <DIR>
+          Tell the agent to use the specified directory as its working root
+
+      --worktree
+          Run the session in a new managed Git worktree
+
+      --add-dir <DIR>
+          Additional directories that should be writable alongside the primary workspace
+
+      --thread-source <SOURCE>
+          Source classification for newly created or forked threads
+
+      --skip-git-repo-check
+          Allow running Codex outside a Git repository
+
+      --ephemeral
+          Run without persisting session files to disk
+
+      --ignore-user-config
+          Do not load `$CODEX_HOME/config.toml`; auth still uses `CODEX_HOME`
+
+      --ignore-rules
+          Do not load user or project execpolicy `.rules` files
+
+      --output-schema <FILE>
+          Path to a JSON Schema file describing the model's final response shape
+
+      --color <COLOR>
+          Specifies color settings for use in the output
+
+          [default: auto]
+          [possible values: always, never, auto]
+
+      --json
+          Print events to stdout as JSONL
+
+  -o, --output-last-message <FILE>
+          Specifies file where the last message from the agent should be written
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+
+# ---------------------------------------------------------------------------
+# `codex exec review --help` (codex-cli 0.154.0)
+
+Run a code review against the current repository
+
+Usage: codex exec review [OPTIONS] [PROMPT]
+
+Arguments:
+  [PROMPT]
+          Custom review instructions. If `-` is used, read from stdin
+
+Options:
+  -c, --config <key=value>
+          Override a configuration value that would otherwise be loaded from `~/.codex/config.toml`. (as above)
+
+      --uncommitted
+          Review staged, unstaged, and untracked changes
+
+      --base <BRANCH>
+          Review changes against the given base branch
+
+      --enable <FEATURE>
+          Enable a feature (repeatable). Equivalent to `-c features.<name>=true`
+
+      --commit <SHA>
+          Review the changes introduced by a commit
+
+      --disable <FEATURE>
+          Disable a feature (repeatable). Equivalent to `-c features.<name>=false`
+
+      --strict-config
+          Error out when config.toml contains fields that are not recognized by this version of Codex
+
+      --title <TITLE>
+          Optional commit title to display in the review summary
+
+  -m, --model <MODEL>
+          Model the agent should use
+
+      --dangerously-bypass-approvals-and-sandbox
+          Skip all confirmation prompts and execute commands without sandboxing. EXTREMELY DANGEROUS.
+
+      --dangerously-bypass-hook-trust
+          Run enabled hooks without requiring persisted hook trust for this invocation. DANGEROUS.
+
+      --worktree
+          Run the session in a new managed Git worktree
+
+      --thread-source <SOURCE>
+          Source classification for newly created or forked threads
+
+      --skip-git-repo-check
+          Allow running Codex outside a Git repository
+
+      --ephemeral
+          Run without persisting session files to disk
+
+      --ignore-user-config
+          Do not load `$CODEX_HOME/config.toml`; auth still uses `CODEX_HOME`
+
+      --ignore-rules
+          Do not load user or project execpolicy `.rules` files
+
+      --output-schema <FILE>
+          Path to a JSON Schema file describing the model's final response shape
+
+      --json
+          Print events to stdout as JSONL
+
+  -o, --output-last-message <FILE>
+          Specifies file where the last message from the agent should be written
+
+# ---------------------------------------------------------------------------
+# Trial runs, from `~` (NOT a git repository), 17 Sep 2026
+
+$ codex exec -s read-only --ephemeral --json -o /tmp/verdict.md "List the three riskiest files in this repo and why. Do not edit anything."
+Not inside a trusted directory and --skip-git-repo-check was not specified.
+
+$ codex exec --worktree -s workspace-write --json -o /tmp/last.md "Add a one-line comment to the README and commit it."
+Error: --worktree requires the worktrees feature; enable it with --enable worktrees
+
+# Read: (1) exec refuses outside a trusted git repo — the Runner must always pass
+# -C <repo> and the repo must be one Codex has trusted (or the run is refused,
+# which is the safe direction). (2) --worktree needs --enable worktrees.
+# Neither trial has yet been run INSIDE a repo; that measurement is still open.
+
+# ---------------------------------------------------------------------------
+# Trial runs, second attempt, 18 Sep 2026 00:1x local
+
+$ cd "$(find ~ -maxdepth 4 -type d -name aether-os -not -path '*/node_modules/*' | head -1)" && pwd
+/Users/calvin_dean0/.config/manicode/projects/aether-os        # NOT the clone: a tool's project-state folder
+$ codex exec -s read-only --ephemeral --json -o /tmp/verdict.md "..."
+Not inside a trusted directory and --skip-git-repo-check was not specified.
+$ codex exec --enable worktrees --worktree -s workspace-write --json -o /tmp/last.md "..."
+Error: git command failed: You have not agreed to the Xcode license agreements. Please run
+'sudo xcodebuild -license' from within a Terminal window to review and agree to the Xcode and Apple SDKs license.
+
+# Read: (1) the folder found was ~/.config/manicode/projects/aether-os, which is a
+# coding tool's state directory, not a git checkout — so the trust refusal is
+# expected and still says nothing about the real repo. (2) Apple's git is refusing
+# EVERY command until the Xcode licence is accepted: this blocks Codex, Claude
+# Code lane workers, and the Runner alike. Precondition, not a Codex fact.
+# (3) `~/.config/manicode` is Codebuff's (formerly Manicode) state dir — the
+# "Freebuff" tool is very likely Codebuff, which has a CLI. Parked, per Calvin.

@@ -1,0 +1,36 @@
+{
+  "name": "agent-os",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A standalone centre for CLI agents (Claude Code, Codex) and one second brain. No API keys: every tool is a logged-in CLI.",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "dev": "concurrently --kill-others -n runner,desk -c cyan,magenta \"npm:dev:runner\" \"npm:dev:desk\"",
+    "dev:runner": "tsx watch runner/index.ts",
+    "dev:desk": "vite --config desk/vite.config.ts",
+    "runner": "tsx runner/index.ts",
+    "build:desk": "vite build --config desk/vite.config.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "verify": "npm run typecheck && npm test",
+    "brain:init": "tsx scripts/brain-init.ts",
+    "config:init": "tsx scripts/config-init.ts"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.0",
+    "concurrently": "^9.2.1",
+    "express": "^5.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.0"
+  }
+}
