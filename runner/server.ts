@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { existsSync, readFileSync, unlinkSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { MODES, TOOL_IDS, type RunRow, type StartRunBody } from '../shared/types.ts';
+import { MODES, TOOL_IDS, type Mode, type RunRow, type StartRunBody, type ToolId } from '../shared/types.ts';
 import { ADAPTERS } from './adapters/index.ts';
 import { composeBrief } from './brief.ts';
 import { fetchBrain, readBrain } from './brain.ts';
@@ -26,6 +26,13 @@ export interface ServerDeps {
 }
 
 export const RUN_LOG_DIR = '.agent-os/runs';
+
+interface DryRunQuery {
+  readonly tool: ToolId;
+  readonly mode: Mode;
+  readonly repo: string;
+  readonly brief: string;
+}
 
 function tailFile(path: string, bytes: number): string {
   if (!existsSync(path)) return '';
@@ -68,6 +75,51 @@ export function createApp(deps: ServerDeps): express.Express {
 
   app.get('/api/runs', (_req, res) => {
     res.json(store.list(100).map((r) => withLiveness(r, probe)));
+  });
+
+  app.get('/api/runs/dry', (req, res) => {
+    const tool = String(req.query['tool'] ?? '');
+    const mode = String(req.query['mode'] ?? '');
+    const repoArg = String(req.query['repo'] ?? '');
+    const brief = String(req.query['brief'] ?? 'Verify this Agent OS command end to end, make no unnecessary changes, and report what happened.');
+    if (!(TOOL_IDS as readonly string[]).includes(tool)) {
+      res.status(400).json({ error: `tool must be one of ${TOOL_IDS.join(', ')}` });
+      return;
+    }
+    if (!(MODES as readonly string[]).includes(mode)) {
+      res.status(400).json({ error: `mode must be one of ${MODES.join(', ')}` });
+      return;
+    }
+    if (repoArg === '') {
+      res.status(400).json({ error: 'a repo is required: a name from config, "brain", or an absolute path' });
+      return;
+    }
+    const repo = resolveRepo(config, repoArg);
+    if (repo === null) {
+      res.status(400).json({ error: `unknown repo ${repoArg}` });
+      return;
+    }
+    const q: DryRunQuery = { tool: tool as ToolId, mode: mode as Mode, repo: repoArg, brief };
+    const adapter = ADAPTERS[q.tool];
+    if (!adapter.modes.includes(q.mode)) {
+      res.status(400).json({ error: `${adapter.label} does not serve mode ${q.mode}` });
+      return;
+    }
+    const id = 'dry-run';
+    const reportPath = config.brain === null ? join(root, RUN_LOG_DIR, `${id}.report.md`) : reportPathFor(config.brain, id, now());
+    const lastMessagePath = join(root, RUN_LOG_DIR, `${id}.last.md`);
+    const prompt = composeBrief({
+      runId: id,
+      tool: q.tool,
+      mode: q.mode,
+      brain: config.brain,
+      cwd: repo,
+      brief: q.brief,
+      reportPath,
+      workflow: null,
+      step: null,
+    });
+    res.json(adapter.command({ runId: id, mode: q.mode, cwd: repo, brain: config.brain, prompt, reportPath, lastMessagePath }));
   });
 
   app.get('/api/runs/:id', (req, res) => {

@@ -218,3 +218,28 @@ Error: git command failed: You have not agreed to the Xcode license agreements. 
 # Code lane workers, and the Runner alike. Precondition, not a Codex fact.
 # (3) `~/.config/manicode` is Codebuff's (formerly Manicode) state dir — the
 # "Freebuff" tool is very likely Codebuff, which has a CLI. Parked, per Calvin.
+
+# ---------------------------------------------------------------------------
+# Managed-worktree build trial, 18 Sep 2026 11:0x local
+
+# The adapter command was first returned by:
+# GET /api/runs/dry?tool=codex&mode=build&repo=agent-os
+# It emitted `codex exec --enable worktrees --worktree -s workspace-write
+# --json -o <last-message> <prompt>` without spawning or creating a run row.
+
+# The same flag shape was then run in a disposable real git repository with a
+# brief to create VERIFY.md, inspect it, commit it, and finish. It completed
+# without prompting and without `--approve-for-me`:
+#
+#   ## HEAD (no branch)
+#   /Users/calvin_dean0/.codex/worktrees/d067/agent-os-codex-build.8u1KF2
+#   ?? VERIFY.md
+#   [detached HEAD f323e8e] Verify managed worktree write
+#   1 file changed, 1 insertion(+)
+#   create mode 100644 VERIFY.md
+#   ## HEAD (no branch)
+#
+# Process exit: 0. The original checkout stayed on main and unchanged. Read:
+# workspace-write did not wait for an unattended approval for file creation,
+# `git status`, or `git commit`; the documented adapter shape works headlessly
+# and `--approve-for-me` is not needed for this measured path.

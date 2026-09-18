@@ -20,7 +20,7 @@ export function loadConfig(root: string): Config {
     return { brain: null, repos: {}, codexBuildVerified: false, port: DEFAULT_PORT };
   }
   const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<{
-    brain: string;
+    brain: string | null;
     repos: Record<string, string>;
     codexBuildVerified: boolean;
     port: number;
@@ -30,7 +30,7 @@ export function loadConfig(root: string): Config {
     if (!isAbsolute(p)) throw new Error(`${CONFIG_FILE}: repos.${name} must be an absolute path, got ${p}`);
     repos[name] = p;
   }
-  if (raw.brain !== undefined && !isAbsolute(raw.brain)) {
+  if (raw.brain !== undefined && raw.brain !== null && !isAbsolute(raw.brain)) {
     throw new Error(`${CONFIG_FILE}: brain must be an absolute path, got ${raw.brain}`);
   }
   return {

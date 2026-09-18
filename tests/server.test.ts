@@ -70,6 +70,26 @@ test('refusals: bad tool, bad mode, no brief, unknown repo, stop file, codex bui
   await s.close();
 });
 
+test('dry run returns the exact adapter request without spawning or writing a row', async () => {
+  const { dir } = repoWithCommit();
+  let spawned = false;
+  const s = await up({ brain: dir, repos: { r: dir } }, (req, logPath) => {
+    spawned = true;
+    return spawnRun(req, logPath);
+  });
+  const dry = await s.call('GET', '/api/runs/dry?tool=codex&mode=build&repo=r&brief=measure%20it');
+  assert.equal(dry.status, 200, dry.text);
+  assert.equal(dry.json['command'], 'codex');
+  const args = dry.json['args'] as string[];
+  assert.ok(args.includes('--worktree'));
+  assert.equal(args[args.indexOf('-s') + 1], 'workspace-write');
+  assert.equal(args[args.length - 1]?.includes('measure it'), true);
+  assert.equal(dry.json['cwd'], dir);
+  assert.equal(spawned, false);
+  assert.equal(s.store.list().length, 0);
+  await s.close();
+});
+
 test('a run: starts, logs, ends succeeded, and the Runner files the report into the Brain and pushes', async (t) => {
   const brain = repoWithCommit(true);
   const { dir } = repoWithCommit();
