@@ -10,6 +10,8 @@
     "dev:runner": "tsx watch runner/index.ts",
     "dev:desk": "vite --config desk/vite.config.ts",
     "runner": "tsx runner/index.ts",
+    "up": "tsx scripts/up.ts",
+    "down": "tsx scripts/down.ts",
     "build:desk": "vite build --config desk/vite.config.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --import tsx --test tests/*.test.ts",

@@ -25,7 +25,8 @@ npm ci
 npm run brain:init -- /absolute/path/to/second-brain      # once; then add a remote and push
 npm run config:init -- --brain /absolute/path/to/second-brain --repo lockdown=/abs/Productivity
 npm run config:init -- --codex-trusted lockdown            # after accepting Codex trust in that checkout
-npm run dev                                               # Runner + Desk; open http://127.0.0.1:5180
+npm run up                                                # preflight, then detached Runner + Desk
+npm run down                                              # stops only the pids and start tokens from `up`
 ```
 
 Preconditions the status strip checks for you: `git --version` works (on a Mac
