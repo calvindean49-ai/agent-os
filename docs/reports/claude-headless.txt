@@ -1,0 +1,25 @@
+# Measured on Calvin's Mac, 18 Sep 2026. `claude --version` → 2.1.270 (Claude Code)
+
+# Agent OS started a real read run against /Users/calvin_dean0/second-brain:
+#
+#   claude -p <composed brief> --output-format text --no-session-persistence \
+#     --permission-mode dontAsk --permission-prompts none \
+#     --allowedTools Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*) \
+#     --disallowedTools Edit,Write,NotebookEdit,Bash
+#
+# Brief: "What am I working on? Read the Brain and answer concisely. Do not
+# edit anything."
+#
+# Run: r-20260918-1919-001
+# Exit: 0
+# State: succeeded
+# Report filed by the Runner:
+#   /Users/calvin_dean0/second-brain/runs/2026-09/r-20260918-1919-001.md
+# Commit created in the Brain:
+#   claude r-20260918-1919-001: run report
+#
+# The final push did not complete. The Brain's main branch had no upstream; an
+# explicit `git push -u origin main` then reached its SSH remote but failed with
+# "Host key verification failed." `gh auth status` also reports that the saved
+# github.com login for calvindean49-ai is invalid. This is an external login/
+# host-trust precondition, not a Claude headless or Runner filing failure.
