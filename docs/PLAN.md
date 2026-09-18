@@ -166,6 +166,14 @@ Three views, all read from the Brain's last fetched commit and from the Runner's
 - **Runs** — live table from the Runner (polled every 5 s while visible), log viewer, cancel, stop file switch.
 - **Workflows** — every `workflows/*.md` with a *run step N with <tool>* button, and a brief box that starts a `claude` run with "set up a workflow for: …".
 
+**Amendment, 18 Sep 2026 — decided by Calvin:** Chats is now the default fourth
+view. A chat turn is a normal read-only Runner session in the Brain checkout;
+the exchange is filed, committed and pushed as its run report. Thread metadata
+and run links live in the Runner's existing SQLite, and recent filed turns are
+composed into the next stateless CLI prompt. This deliberately opens the
+previously parked conversation-store decision without adding API keys, vendor
+HTTP clients, another process, or a second agent protocol.
+
 Stack: React/Vite/TS front, Express/SQLite Runner — the stack you already run, so any CLI can build on it (decided 17 Sep). Repo: **`calvindean49-ai/agent-os`**, new, **never** the Brain.
 
 ## 7. Cloud

@@ -8,7 +8,7 @@ import { isAlive, startToken } from '../runner/procstart.ts';
 import { spawnRun } from '../runner/process.ts';
 import { createApp, reconcile } from '../runner/server.ts';
 import { openStore } from '../runner/store.ts';
-import type { RunView } from '../shared/types.ts';
+import type { ChatDetail, ChatThread, ChatThreadView, RunView } from '../shared/types.ts';
 import { repoWithCommit, tmp, git } from './helpers.ts';
 
 const probe = { isAlive, startToken };
@@ -170,6 +170,54 @@ test('a run: starts, logs, ends succeeded, and the Runner files the report into 
   assert.equal(served.json['ref'], 'origin/main');
   await until(() => git(brain.dir, ['log', '--oneline', 'origin/main']).includes(run.id));
   assert.equal(s.store.get(run.id)?.note, 'finished');
+  await s.close();
+});
+
+test('Brain-backed chats persist threads, file each exchange, and carry context forward', async (t) => {
+  const brain = repoWithCommit(true);
+  const prompts: string[] = [];
+  const spawner = (req: Parameters<typeof spawnRun>[0], logPath: string) => {
+    prompts.push(req.args.at(-1) ?? '');
+    return fakeSpawner('echo "answer from the agent" > "$(echo "$@" | sed -n "s/.*-o \\([^ ]*\\).*/\\1/p")"; exit 0')(req, logPath);
+  };
+  const s = await up({ brain: brain.dir, codexTrusted: [brain.dir] }, spawner);
+  t.mock.method(await import('../runner/adapters/codex.ts').then((m) => m.codex), 'detect', () => ({ available: true, detail: 'fake' }));
+
+  const created = await s.call('POST', '/api/chats', { tool: 'codex', title: 'Personal project' });
+  assert.equal(created.status, 201, created.text);
+  const chat = created.json as unknown as ChatThread;
+  const first = await s.call('POST', `/api/chats/${chat.id}/messages`, { body: 'Help me shape this idea.' });
+  assert.equal(first.status, 201, first.text);
+  const firstRun = first.json as unknown as RunView;
+  await until(() => s.store.get(firstRun.id)?.state === 'succeeded');
+  await until(() => existsSync(firstRun.report_path));
+
+  const detail = await s.call('GET', `/api/chats/${chat.id}`);
+  const messages = (detail.json as unknown as ChatDetail).messages;
+  assert.equal(messages[0]?.body, 'Help me shape this idea.');
+  assert.equal(messages[1]?.body, 'answer from the agent');
+
+  const second = await s.call('POST', `/api/chats/${chat.id}/messages`, { body: 'What is the smallest first step?' });
+  assert.equal(second.status, 201, second.text);
+  assert.match(prompts[1] ?? '', /Person: Help me shape this idea/);
+  assert.match(prompts[1] ?? '', /Assistant: answer from the agent/);
+  assert.match(prompts[1] ?? '', /What is the smallest first step/);
+
+  const listed = await s.call('GET', '/api/chats');
+  const list = listed.json as unknown as ChatThreadView[];
+  assert.equal(list[0]?.turnCount, 2);
+  await until(() => s.store.get((second.json as unknown as RunView).id)?.state === 'succeeded');
+  await s.close();
+});
+
+test('chats refuse unsupported tools, blank messages, and unknown threads', async () => {
+  const brain = repoWithCommit();
+  const s = await up({ brain: brain.dir });
+  assert.equal((await s.call('POST', '/api/chats', { tool: 'gemini' })).status, 400);
+  const created = await s.call('POST', '/api/chats', { tool: 'claude', title: 'x' });
+  const chat = created.json as unknown as ChatThread;
+  assert.equal((await s.call('POST', `/api/chats/${chat.id}/messages`, { body: '  ' })).status, 400);
+  assert.equal((await s.call('GET', '/api/chats/nope')).status, 404);
   await s.close();
 });
 

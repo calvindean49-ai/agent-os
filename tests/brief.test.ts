@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { composeBrief, composeCloudLaunchBrief } from '../runner/brief.ts';
+import { composeBrief, composeChatTurn, composeCloudLaunchBrief } from '../runner/brief.ts';
 
 const base = { runId: 'r-9', tool: 'codex' as const, brain: '/b', cwd: '/r', brief: '  fix the thing  ', reportPath: '/b/runs/2026-09/r-9.md', workflow: null, step: null };
 
@@ -30,4 +30,15 @@ test('cloud launcher forbids APIs and recurring substitutes, and carries the rea
   assert.match(prompt, /Never use curl.*API key/);
   assert.match(prompt, /Do not create a recurring schedule/);
   assert.ok(prompt.endsWith('do the thing'));
+});
+
+test('chat brief stays conversational and carries recent turns into a stateless session', () => {
+  const turn = composeChatTurn('Maths plan', [{ user: 'I lose momentum', assistant: 'Make the next step smaller.' }], 'What should I do tonight?');
+  assert.match(turn, /Use the Brain as the shared source of context/);
+  assert.match(turn, /Person: I lose momentum/);
+  assert.match(turn, /Assistant: Make the next step smaller/);
+  assert.ok(turn.endsWith('What should I do tonight?'));
+  const prompt = composeBrief({ ...base, mode: 'read', brief: turn, chat: 'c-1' });
+  assert.match(prompt, /Answer the person directly and naturally/);
+  assert.doesNotMatch(prompt, /final message is your report/);
 });

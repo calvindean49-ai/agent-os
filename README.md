@@ -11,9 +11,19 @@ Three parts:
 |---|---|---|
 | **The Brain** | A git repo of markdown every agent reads as context and writes results into. Seeded from `brain-template/`. | your `second-brain` checkout |
 | **The Runner** | A local service on `127.0.0.1:8800` that starts one tool in one repo with one brief, logs it, records how it ended, and files a report into the Brain. The only thing that spawns a process. | `runner/` |
-| **The Desk** | A page on `127.0.0.1:5180` that shows the Brain, the runs and the workflows, and is where you type a brief. | `desk/` |
+| **The Desk** | A page on `127.0.0.1:5180` for Brain-backed chats, direct runs and visible workflows. | `desk/` |
 
 Agents never talk to each other. They read and write the same files; git is the bus.
+
+## What a chat is
+
+Chats are personal conversations with Claude or ChatGPT/Codex through their
+logged-in CLIs. Each turn starts a read-only run in the Brain checkout, so the
+agent reads the same committed context as every other tool. The Runner files
+your message and the answer together under `runs/YYYY-MM/`, commits and pushes
+it. Recent filed turns are carried into the next stateless CLI session, while
+the local SQLite store keeps only the thread list and its run links. There are
+still no model API keys or vendor HTTP clients.
 
 The full plan, with everything Calvin specified and why each choice was made: `docs/PLAN.md`.
 The handover for whoever finishes it: `AGENTS.md`.

@@ -1,4 +1,4 @@
-import type { BrainReading, RunReportDocument, RunView, StartRunBody, StatusReport } from '../../shared/types.ts';
+import type { BrainReading, ChatDetail, ChatThread, ChatThreadView, RunReportDocument, RunView, StartRunBody, StatusReport, ToolId } from '../../shared/types.ts';
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { ...init, headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) } });
@@ -22,6 +22,10 @@ export const api = {
   cancel: (id: string) => call<{ ok: boolean }>(`/api/runs/${id}/cancel`, { method: 'POST' }),
   log: async (id: string) => (await fetch(`/api/runs/${id}/log`)).text(),
   report: (id: string) => call<RunReportDocument>(`/api/runs/${id}/report`),
+  chats: () => call<ChatThreadView[]>('/api/chats'),
+  createChat: (tool: ToolId, title: string) => call<ChatThread>('/api/chats', { method: 'POST', body: JSON.stringify({ tool, title }) }),
+  chat: (id: string) => call<ChatDetail>(`/api/chats/${id}`),
+  sendChat: (id: string, body: string) => call<RunView>(`/api/chats/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) }),
   stop: () => call<{ stopped: boolean }>('/api/stop', { method: 'POST' }),
   resume: () => call<{ stopped: boolean }>('/api/resume', { method: 'POST' }),
 };

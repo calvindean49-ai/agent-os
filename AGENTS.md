@@ -14,15 +14,15 @@ decisions are listed at the bottom and are Calvin's.
 4. **The Brain is read out of a commit** (`origin/main` as last fetched, else `HEAD`) and never the working tree; the Runner runs `git fetch`, never `git pull`, because a pull under a running agent is how uncommitted work dies.
 5. **A build never runs in the checkout.** Claude builds go in a worktree on `agent/<run-id>` (`runner/worktree.ts`); Codex builds use `--worktree`. A build on `main`/`master` is refused.
 6. **Every run leaves a report in the Brain** (`runs/YYYY-MM/<id>.md`), written by the agent if it could write, else by the Runner (`runner/report.ts`), then committed and pushed. The run row's `note` says when that failed.
-7. **One run per tool at a time.** No caps, lanes, claims, cron or retries in v1. That is a decision (PLAN §2), not an omission. Concurrency is a v2 question answered from measured need.
+7. **One run per tool at a time.** No caps, lanes, claims, cron or retries in v1. Brain-backed conversation threads were added by Calvin's decision on 18 Sep; they reuse runs and do not schedule work. Concurrency is a v2 question answered from measured need.
 8. **Tests are real:** they spawn real processes (`sh`), make real git repos in a temp dir, and never reach the network. `npm run verify` must be green before every commit. Do not mock what you can run.
 9. Commit messages say what was measured and why the change; do not put a model name in a commit.
 
-## What is built and verified (41 tests, tsc clean, Desk bundles)
+## What is built and verified (46 tests, tsc clean, Desk bundles)
 
 - `shared/types.ts` — the contract between Runner and Desk.
 - `runner/` — config (`.agent-os/config.json`), token door (`.agent-os/token`, 0600, no unset-means-open), SQLite store (`node:sqlite`, no native build), spawner with process groups and a start-time token, read-time liveness, adapters for `claude` and `codex`, brief composer, worktree guard, report filer, Brain reader, status probes, the HTTP server, and `reconcile()` for rows orphaned by a previous Runner.
-- `desk/` — Vite + React: status strip, Runs (start form, live table, log tail, cancel, stop/resume), Brain (INDEX rendered, projects, recent reports, fetch), Workflows (list, run-a-step, author-a-workflow). The proxy adds the token and refuses a foreign Origin.
+- `desk/` — Vite + React: Brain-backed Chats, Runs (start form, live table, log tail, cancel, stop/resume), Brain (INDEX rendered, projects, recent reports, fetch), and Workflows (list, run-a-step, author-a-workflow). The proxy adds the token and refuses a foreign Origin.
 - `brain-template/` — `AGENTS.md` (the Brain's rulebook, workflow shape, report shape), `CLAUDE.md` → `@AGENTS.md`, `INDEX.md`, project/learning/schedule/workflow/inbox/decisions/runs skeletons, one real workflow.
 - `scripts/brain-init.ts`, `scripts/config-init.ts`.
 
@@ -37,6 +37,7 @@ Each item below is one commit with `npm run verify` green.
 5. **Cloud shipped and measured.** A local read-only launcher created one disabled one-off routine and a successful 94-second web run through `RemoteTrigger`; the cloud report was pushed. No API or recurring schedule was added. Local Fetch is blocked because `/Users/calvin_dean0/second-brain` is a different history from origin/main and its GitHub auth is broken. See `docs/reports/claude-cloud.txt`.
 6. **Runner `up`/`down` shipped.** Real acceptance: both services became ready, the Desk returned HTTP 200, and `down` stopped exactly the recorded PIDs whose start tokens matched. Xcode-licence repair text is covered.
 7. **Reports beside logs shipped.** The report route reads the Brain commit, never the working tree. Real Desk-proxy acceptance returned the finished report at `HEAD`; tests prove a newer working-tree replacement is ignored.
+8. **Brain-backed chats and the visual Desk shipped.** Claude and ChatGPT/Codex conversations use the existing subscription CLI adapters. Every turn reads the committed Brain, becomes a normal run report in the Brain, and carries recent filed turns into the next stateless session. SQLite stores only thread metadata and run links. The Desk now opens on a quieter conversation surface while preserving operational views.
 
 Two external actions remain before the local Brain can follow the cloud result: restore GitHub authentication/SSH host trust, then decide how to reconcile the local old notes/derived-index history with the Agent OS Brain seed at origin/main. Agent OS intentionally did neither automatically. Browser visual automation was also unavailable (`agent-browser` absent; macOS Computer Use permission not granted), though the production bundle and UI-state tests pass.
 
@@ -45,13 +46,13 @@ Two external actions remain before the local Brain can follow the cloud result: 
 - The Foreman in `aether-os` — a different system for a different job; copy its patterns, never import it.
 - Aether OS's database — never written from here.
 - Adding Gemini or Freebuff (likely Codebuff) — parked by Calvin on 17 Sep; when unparked, one adapter file each, from their own `--help`.
-- Any scheduler, queue, cap, or second conversation store.
+- Any scheduler, queue, cap, or retry system. Chat threads are now a decided v1 surface and must continue to reuse the Runner and Brain reports rather than become a parallel agent system.
 
 ## How to run the checks
 
 ```sh
 npm ci
-npm run verify        # tsc + 27 tests, ~3 s, no network
+npm run verify        # tsc + 46 tests, ~3 s, no network
 npm run build:desk    # Vite bundle
 npm run dev           # then http://127.0.0.1:5180
 ```

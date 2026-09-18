@@ -106,3 +106,39 @@ export interface StartRunBody {
   readonly workflow?: string;
   readonly step?: number;
 }
+
+export interface ChatThread {
+  readonly id: string;
+  readonly title: string;
+  readonly tool: ToolId;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface ChatThreadView extends ChatThread {
+  readonly turnCount: number;
+  readonly lastState: RunState | null;
+}
+
+export interface ChatMessage {
+  readonly id: string;
+  readonly role: 'user' | 'assistant';
+  readonly body: string;
+  readonly createdAt: string;
+  readonly runId: string;
+  readonly state: RunState;
+}
+
+export interface ChatDetail {
+  readonly thread: ChatThread;
+  readonly messages: readonly ChatMessage[];
+}
+
+export interface CreateChatBody {
+  readonly tool: ToolId;
+  readonly title?: string;
+}
+
+export interface SendChatMessageBody {
+  readonly body: string;
+}
