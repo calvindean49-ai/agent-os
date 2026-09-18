@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { MODES, TOOL_IDS, type Mode, type RunRow, type StartRunBody, type ToolId } from '../shared/types.ts';
 import { ADAPTERS } from './adapters/index.ts';
 import { composeBrief, composeCloudLaunchBrief } from './brief.ts';
-import { fetchBrain, readBrain } from './brain.ts';
+import { fetchBrain, readBrain, readRunReport } from './brain.ts';
 import { isCodexTrusted, resolveRepo, type Config } from './config.ts';
 import { withLiveness, type LivenessProbe } from './liveness.ts';
 import { tryGit } from './git.ts';
@@ -146,6 +146,24 @@ export function createApp(deps: ServerDeps): express.Express {
       return;
     }
     res.type('text/plain').send(tailFile(row.log_path, 24_000));
+  });
+
+  app.get('/api/runs/:id/report', (req, res) => {
+    const row = store.get(String(req.params['id']));
+    if (row === null) {
+      res.status(404).json({ error: 'no such run' });
+      return;
+    }
+    if (config.brain === null) {
+      res.status(409).json({ error: 'no Brain configured' });
+      return;
+    }
+    const report = readRunReport(config.brain, row.report_path);
+    if (report === null) {
+      res.status(404).json({ error: `report is not present at the Brain's current ref` });
+      return;
+    }
+    res.json(report);
   });
 
   app.post('/api/runs', (req, res) => {

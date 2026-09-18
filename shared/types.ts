@@ -78,6 +78,12 @@ export interface RunReportView {
   readonly firstLine: string;
 }
 
+export interface RunReportDocument {
+  readonly path: string;
+  readonly ref: string;
+  readonly body: string;
+}
+
 export interface BrainReading {
   readonly path: string;
   readonly ref: string;

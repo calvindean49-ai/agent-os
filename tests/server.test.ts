@@ -164,6 +164,10 @@ test('a run: starts, logs, ends succeeded, and the Runner files the report into 
   const report = readFileSync(run.report_path, 'utf8');
   assert.match(report, /^# Run r-/);
   assert.match(report, /last message/);
+  const served = await s.call('GET', `/api/runs/${run.id}/report`);
+  assert.equal(served.status, 200, served.text);
+  assert.match((served.json['body'] as string), /last message/);
+  assert.equal(served.json['ref'], 'origin/main');
   await until(() => git(brain.dir, ['log', '--oneline', 'origin/main']).includes(run.id));
   assert.equal(s.store.get(run.id)?.note, 'finished');
   await s.close();

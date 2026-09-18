@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import type { Mode, RunView, StatusReport, ToolId } from '../../../shared/types.ts';
+import type { Mode, RunReportDocument, RunView, StatusReport, ToolId } from '../../../shared/types.ts';
 import { api } from '../api.ts';
+import { renderMarkdown } from '../md.ts';
 
 export function StartForm({ status, preset, onStarted }: { status: StatusReport | null; preset?: { brief: string; workflow: string; step: number; tool: string }; onStarted: (run: RunView) => void }) {
   const [tool, setTool] = useState<ToolId>('claude');
@@ -55,6 +56,8 @@ export function Runs({ status }: { status: StatusReport | null }) {
   const [runs, setRuns] = useState<RunView[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [log, setLog] = useState('');
+  const [report, setReport] = useState<RunReportDocument | null>(null);
+  const openRunState = runs.find((item) => item.id === open)?.state;
   const load = () => api.runs().then(setRuns).catch(() => undefined);
   useEffect(() => {
     void load();
@@ -62,12 +65,21 @@ export function Runs({ status }: { status: StatusReport | null }) {
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
+    setLog('');
+    setReport(null);
+  }, [open]);
+  useEffect(() => {
     if (open === null) return;
-    const pull = () => api.log(open).then(setLog).catch(() => undefined);
+    const pull = () => {
+      void api.log(open).then(setLog).catch(() => undefined);
+      if (openRunState !== undefined && openRunState !== 'running' && openRunState !== 'requested') {
+        void api.report(open).then(setReport).catch(() => setReport(null));
+      }
+    };
     void pull();
     const t = setInterval(() => { if (document.visibilityState === 'visible') void pull(); }, 4000);
     return () => clearInterval(t);
-  }, [open]);
+  }, [open, openRunState]);
   return (
     <section>
       <StartForm status={status} onStarted={() => { void load(); }} />
@@ -90,9 +102,17 @@ export function Runs({ status }: { status: StatusReport | null }) {
         </tbody>
       </table>
       {open && (
-        <div className="log">
-          <div className="log-head"><span>{open}</span><button className="tiny" onClick={() => setOpen(null)}>close</button></div>
-          <pre>{log || '(empty log)'}</pre>
+        <div className="run-detail">
+          <div className="log">
+            <div className="log-head"><span>{open} · local log</span><button className="tiny" onClick={() => setOpen(null)}>close</button></div>
+            <pre>{log || '(empty log)'}</pre>
+          </div>
+          <div className="report">
+            <div className="log-head"><span>Brain report</span><span>{report ? `${report.ref}:${report.path}` : 'not filed at the current ref'}</span></div>
+            {report
+              ? <article className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(report.body) }} />
+              : <p>A finished run’s committed report appears here. Fetch the Brain if a cloud report was just pushed.</p>}
+          </div>
         </div>
       )}
     </section>

@@ -1,4 +1,4 @@
-import type { BrainReading, RunView, StartRunBody, StatusReport } from '../../shared/types.ts';
+import type { BrainReading, RunReportDocument, RunView, StartRunBody, StatusReport } from '../../shared/types.ts';
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, { ...init, headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) } });
@@ -21,6 +21,7 @@ export const api = {
   start: (body: StartRunBody) => call<RunView>('/api/runs', { method: 'POST', body: JSON.stringify(body) }),
   cancel: (id: string) => call<{ ok: boolean }>(`/api/runs/${id}/cancel`, { method: 'POST' }),
   log: async (id: string) => (await fetch(`/api/runs/${id}/log`)).text(),
+  report: (id: string) => call<RunReportDocument>(`/api/runs/${id}/report`),
   stop: () => call<{ stopped: boolean }>('/api/stop', { method: 'POST' }),
   resume: () => call<{ stopped: boolean }>('/api/resume', { method: 'POST' }),
 };

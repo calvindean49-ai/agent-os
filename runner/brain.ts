@@ -1,7 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 
-import type { BrainReading, WorkflowStep, WorkflowView } from '../shared/types.ts';
+import type { BrainReading, RunReportDocument, WorkflowStep, WorkflowView } from '../shared/types.ts';
 import { hasRef, isRepo, listFiles, showFile, tryGit } from './git.ts';
 
 /**
@@ -25,6 +25,20 @@ export function parseWorkflow(name: string, path: string, text: string): Workflo
   return { name, path, title, steps, body: text };
 }
 
+export function brainRef(brain: string): string {
+  return hasRef(brain, 'origin/main') ? 'origin/main' : 'HEAD';
+}
+
+/** A finished report is read from the same immutable Brain ref as the Desk, never from the working tree. */
+export function readRunReport(brain: string, absoluteReportPath: string): RunReportDocument | null {
+  if (!isRepo(brain)) return null;
+  const path = relative(brain, absoluteReportPath);
+  if (path === '' || path.startsWith('..') || isAbsolute(path)) return null;
+  const ref = brainRef(brain);
+  const body = showFile(brain, ref, path);
+  return body === null ? null : { path, ref, body };
+}
+
 export function readBrain(brain: string | null): BrainReading {
   const unavailable: string[] = [];
   if (brain === null) {
@@ -35,7 +49,7 @@ export function readBrain(brain: string | null): BrainReading {
   if (unavailable.length > 0) {
     return { path: brain, ref: '', commit: null, fetchedAt: null, index: null, projects: [], workflows: [], runs: [], unavailable };
   }
-  const ref = hasRef(brain, 'origin/main') ? 'origin/main' : 'HEAD';
+  const ref = brainRef(brain);
   if (ref === 'HEAD') unavailable.push('no origin/main: reading HEAD (nothing pushed by cloud sessions can appear here)');
   const commit = tryGit(brain, ['rev-parse', '--short', ref]);
   const fetchHead = join(brain, '.git', 'FETCH_HEAD');

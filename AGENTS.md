@@ -18,7 +18,7 @@ decisions are listed at the bottom and are Calvin's.
 8. **Tests are real:** they spawn real processes (`sh`), make real git repos in a temp dir, and never reach the network. `npm run verify` must be green before every commit. Do not mock what you can run.
 9. Commit messages say what was measured and why the change; do not put a model name in a commit.
 
-## What is built and verified (27 tests, tsc clean, Desk bundles)
+## What is built and verified (41 tests, tsc clean, Desk bundles)
 
 - `shared/types.ts` — the contract between Runner and Desk.
 - `runner/` — config (`.agent-os/config.json`), token door (`.agent-os/token`, 0600, no unset-means-open), SQLite store (`node:sqlite`, no native build), spawner with process groups and a start-time token, read-time liveness, adapters for `claude` and `codex`, brief composer, worktree guard, report filer, Brain reader, status probes, the HTTP server, and `reconcile()` for rows orphaned by a previous Runner.
@@ -26,17 +26,19 @@ decisions are listed at the bottom and are Calvin's.
 - `brain-template/` — `AGENTS.md` (the Brain's rulebook, workflow shape, report shape), `CLAUDE.md` → `@AGENTS.md`, `INDEX.md`, project/learning/schedule/workflow/inbox/decisions/runs skeletons, one real workflow.
 - `scripts/brain-init.ts`, `scripts/config-init.ts`.
 
-## What is NOT yet done, in the order to do it
+## Completion status (Codex, 18 Sep 2026)
 
-Each item is one commit with `npm run verify` green. Done-criteria are written so a stranger can check them.
+Each item below is one commit with `npm run verify` green.
 
-1. **Measure Codex build on the Mac.** Calvin runs, inside a real repo, the exact build command the adapter emits (print it with a dry run: add `GET /api/runs/dry?tool=codex&mode=build&repo=…` that returns the `SpawnRequest` without spawning). Watch it: does `workspace-write` wait on an approval nobody answers? If it hangs, try `--approve-for-me` and record the result in `docs/reports/codex-exec-help.txt`. Done when: one Codex build run has succeeded end to end and `codexBuildVerified` is set by `npm run config:init -- --codex-build-verified`.
-2. **Confirm Claude's headless flags on this Mac** the same way (a `read` run against the Brain: `claude -p "what am I working on"`). Done when: a Claude read run's report is in the Brain, filed by the Runner.
-3. **Trust and login probes in the status strip.** `codex` refuses an untrusted repo; `claude` refuses when logged out. Add per-repo `codexTrusted` and a `claude` login probe (Aether's: `claude -p "Reply with the single word ready." --output-format text`, checked for the word `ready`; note it costs one short call) so the strip says *logged out* before a run fails. Done when: with `claude` logged out, `GET /api/status` says so and a start is refused with the sign-in command.
-4. **Workflow step handoff.** When a `me` step is next, the Desk should say so; when a run for step N succeeds, offer step N+1 with one click. Pure UI over the existing `workflow`/`step` fields. Done when: the example workflow can be walked 1 → 2 → 3 from the Desk with no typing.
-5. **Cloud.** `POST /api/runs` with `where: "cloud"` for `claude` only: starts a *local* `claude` read run whose brief is to create a Claude Code on the web session against the Brain repo with the given brief (the only route to the cloud without an API is from inside a Claude session). Done when: a cloud session's report appears in the Brain after `Fetch`. If the local session cannot create a cloud session with the tools it has, record that as measured and stop; do not add an API.
-6. **Runner `up`/`down`.** `npm run up` starts Runner and Desk, probes git and both CLIs first, prints the Desk URL, and fails naming the part that failed; `npm run down` stops exactly what `up` started (pid + start token under `.agent-os/`). Done when: with the Xcode licence unaccepted, `up` refuses and prints `sudo xcodebuild -license accept`.
-7. **Reports as the Desk's history.** Show a run's report (from the Brain, at the ref) beside its log. Done when: clicking a finished run shows both.
+1. **Codex build measured.** `GET /api/runs/dry` returns the exact request without spawning. A disposable real-repo build created and committed a file in a detached managed worktree, exited 0, left the checkout untouched, and needed no `--approve-for-me`. See `docs/reports/codex-exec-help.txt`. Local `codexBuildVerified` is set.
+2. **Claude headless measured.** A real Runner read completed and the Runner committed its report locally. Push is blocked by the local Brain's GitHub SSH host trust and invalid `gh` login; see `docs/reports/claude-headless.txt`.
+3. **Trust and login preflights shipped.** Codex trust is recorded per absolute checkout. Claude's one-word login call is cached for five minutes. Status and starts both expose/refuse failed preconditions with repair commands.
+4. **Workflow handoff shipped.** The Desk derives the relay position from run rows, exposes a `me` acknowledgement, and pre-fills the next agent step. Tests walk the example 1 → 2 → 3 without rewriting the workflow.
+5. **Cloud shipped and measured.** A local read-only launcher created one disabled one-off routine and a successful 94-second web run through `RemoteTrigger`; the cloud report was pushed. No API or recurring schedule was added. Local Fetch is blocked because `/Users/calvin_dean0/second-brain` is a different history from origin/main and its GitHub auth is broken. See `docs/reports/claude-cloud.txt`.
+6. **Runner `up`/`down` shipped.** Real acceptance: both services became ready, the Desk returned HTTP 200, and `down` stopped exactly the recorded PIDs whose start tokens matched. Xcode-licence repair text is covered.
+7. **Reports beside logs shipped.** The report route reads the Brain commit, never the working tree. Real Desk-proxy acceptance returned the finished report at `HEAD`; tests prove a newer working-tree replacement is ignored.
+
+Two external actions remain before the local Brain can follow the cloud result: restore GitHub authentication/SSH host trust, then decide how to reconcile the local old notes/derived-index history with the Agent OS Brain seed at origin/main. Agent OS intentionally did neither automatically. Browser visual automation was also unavailable (`agent-browser` absent; macOS Computer Use permission not granted), though the production bundle and UI-state tests pass.
 
 ## Things to leave alone unless Calvin decides otherwise
 

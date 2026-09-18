@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 
-import { parseWorkflow, readBrain } from '../runner/brain.ts';
+import { parseWorkflow, readBrain, readRunReport } from '../runner/brain.ts';
 import { git, tmp } from './helpers.ts';
 
 function seededBrain(): string {
@@ -60,4 +60,20 @@ test('readBrain reads origin/main, not the working tree', () => {
 test('parseWorkflow tolerates a hyphen and mixed case, ignores prose', () => {
   const w = parseWorkflow('x', 'workflows/x.md', '# Workflow: X\nsteps:\n  1. Claude - do a\n  2. codex — do b\nnot a step 3. here\n');
   assert.deepEqual(w.steps.map((s) => s.tool), ['claude', 'codex']);
+});
+
+test('readRunReport reads the fetched ref and ignores a newer working-tree file', () => {
+  const dir = seededBrain();
+  const origin = tmp('origin-');
+  git(origin, ['init', '-q', '--bare', '-b', 'main']);
+  git(dir, ['remote', 'add', 'origin', origin]);
+  mkdirSync(join(dir, 'runs', '2026-09'), { recursive: true });
+  const path = join(dir, 'runs', '2026-09', 'r-report.md');
+  writeFileSync(path, '# Pushed report\n');
+  git(dir, ['add', '-A']);
+  git(dir, ['commit', '-q', '-m', 'report']);
+  git(dir, ['push', '-q', '-u', 'origin', 'main']);
+  writeFileSync(path, '# Half-written replacement\n');
+  assert.equal(readRunReport(dir, path)?.body, '# Pushed report');
+  assert.equal(readRunReport(dir, join(tmp(), 'outside.md')), null);
 });
