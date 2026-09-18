@@ -39,3 +39,19 @@ export function composeBrief(b: BriefInput): string {
   lines.push(b.brief.trim());
   return lines.join('\n');
 }
+
+/** The local Claude run is only a launcher. RemoteTrigger is the subscription-authenticated path; HTTP/API keys are forbidden. */
+export function composeCloudLaunchBrief(brain: string, remote: string | null, brief: string): string {
+  return [
+    'Create one Claude Code on the web run for the task below. Do not perform the task locally.',
+    'Use the subscription-authenticated RemoteTrigger tool through ToolSearch. Never use curl, an HTTP client, an API key, or a guessed action/field.',
+    `The Brain checkout is ${brain}.`,
+    remote === null ? 'The Brain has no readable origin remote; measure whether the tool can proceed and report that limitation if it cannot.' : `The Brain origin is ${remote}.`,
+    'The web run must work against the Brain repository, read AGENTS.md first, write its run report under runs/YYYY-MM/, commit it, and push it.',
+    'RemoteTrigger exposes routines rather than a direct session primitive. Use only actions and body fields you can verify from the live tool or an existing matching routine.',
+    'If a safe one-off run cannot be created, make no remote changes, state the measured limitation in your final response, and stop. Do not create a recurring schedule as a substitute.',
+    '',
+    'Cloud task:',
+    brief.trim(),
+  ].join('\n');
+}

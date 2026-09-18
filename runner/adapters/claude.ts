@@ -27,6 +27,7 @@ export const claude: Adapter = {
   command(req) {
     const bin = process.env['CLAUDE_BIN'] ?? 'claude';
     const base = ['-p', req.prompt, '--output-format', 'text', '--no-session-persistence'];
+    const readAllowed = req.where === 'cloud' ? [...READ_ALLOWED, 'ToolSearch', 'RemoteTrigger'] : READ_ALLOWED;
     const args =
       req.mode === 'build'
         ? [...base, '--permission-mode', 'bypassPermissions']
@@ -37,7 +38,7 @@ export const claude: Adapter = {
             '--permission-prompts',
             'none',
             '--allowedTools',
-            READ_ALLOWED.join(','),
+            readAllowed.join(','),
             '--disallowedTools',
             'Edit,Write,NotebookEdit,Bash',
           ];

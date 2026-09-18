@@ -50,3 +50,8 @@ npm run build:desk  # the Vite bundle, into dist-desk/
 - **build** — edits on a branch in a worktree, never the checkout. Claude: the Runner makes `agent/<run-id>` under `<repo>/.agent-os/worktrees/`. Codex: `--worktree`, refused until `codexBuildVerified` is set in `.agent-os/config.json` after a real run has been watched to succeed.
 
 One run per tool at a time. `.agent-os/stop` halts all new starts. Everything the Runner writes lives under `.agent-os/` (gitignored) except the reports, which go into the Brain.
+
+Set `where: "cloud"` (or choose **Claude Code on the web** in the Desk) to
+start a local, read-only Claude launcher. It uses the subscription-authenticated
+`RemoteTrigger` tool to create one disabled one-off routine and web run against
+the Brain; it never uses an API key or leaves a recurring schedule behind.

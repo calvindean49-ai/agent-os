@@ -118,6 +118,35 @@ test('dry run returns the exact adapter request without spawning or writing a ro
   await s.close();
 });
 
+test('a cloud request becomes a local read-only Claude launcher against the Brain', async (t) => {
+  const brain = repoWithCommit();
+  let captured: Parameters<typeof spawnRun>[0] | null = null;
+  const s = await up({ brain: brain.dir }, (req, logPath) => {
+    captured = req;
+    return fakeSpawner('exit 0')(req, logPath);
+  });
+  t.mock.method(await import('../runner/adapters/claude.ts').then((m) => m.claude), 'detect', () => ({ available: true, detail: 'fake' }));
+  const response = await s.call('POST', '/api/runs', { tool: 'claude', where: 'cloud', brief: 'do the remote task' });
+  assert.equal(response.status, 201, response.text);
+  const row = response.json as unknown as RunView;
+  assert.equal(row.mode, 'read');
+  assert.equal(row.repo, 'brain');
+  const command = captured as unknown as { args: string[]; cwd: string };
+  assert.equal(command.cwd, brain.dir);
+  assert.ok(command.args.includes('dontAsk'));
+  assert.match(command.args.join(' '), /RemoteTrigger/);
+  assert.match(command.args.join(' '), /do the remote task/);
+  await until(() => s.store.get(row.id)?.state === 'succeeded');
+  await s.close();
+});
+
+test('cloud refuses unsupported tools and a missing Brain', async () => {
+  const s = await up();
+  assert.match((await s.call('POST', '/api/runs', { tool: 'codex', where: 'cloud', brief: 'x' })).json['error'] as string, /claude only/);
+  assert.match((await s.call('POST', '/api/runs', { tool: 'claude', where: 'cloud', brief: 'x' })).json['error'] as string, /configured Brain/);
+  await s.close();
+});
+
 test('a run: starts, logs, ends succeeded, and the Runner files the report into the Brain and pushes', async (t) => {
   const brain = repoWithCommit(true);
   const { dir } = repoWithCommit();

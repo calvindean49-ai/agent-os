@@ -11,7 +11,7 @@ nav button.active { border-color: var(--accent); color: var(--accent); }
 .strip { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; align-items: center; font-size: 12px; color: var(--dim); }
 .light i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); margin-right: 4px; }
 .light.ok i { background: var(--ok); }
-.start { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+.start { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 16px; }
 .start textarea { grid-column: 1 / -1; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; }
 .start select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
 .start button { grid-column: 1 / -1; border-color: var(--accent); }

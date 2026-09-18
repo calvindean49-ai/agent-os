@@ -1,0 +1,42 @@
+# Measured on Calvin's Mac, 18 Sep 2026. Claude Code 2.1.270.
+
+# Capability probe
+
+# `RemoteTrigger` is available to a logged-in local Claude session as a
+# deferred tool loaded through ToolSearch. It has no direct "create session"
+# primitive. Its measured actions are list/get/create/update/run,
+# create_webhook_trigger, list_runs, and get_run_log. The supported no-API path
+# is therefore a one-off disabled routine followed by `run`.
+
+# Agent OS live run
+
+# POST /api/runs with:
+#   tool: claude
+#   where: cloud
+#   brief: read AGENTS.md and report the Brain's top-level structure
+#
+# started local launcher r-20260918-1948-001 in read mode. The launcher was
+# allowed only Read/Grep/Glob, ToolSearch, and RemoteTrigger (plus the measured
+# git read allowlist); it had no edit tools or shell. It emitted no text for
+# 3m12s and was cancelled through Agent OS. Its local row ended `cancelled`.
+
+# Read-only RemoteTrigger audit after cancellation measured that the launcher
+# had in fact created exactly one routine and one web run:
+#
+# - routine: disabled, no cron, no next run (one-off; no recurrence left behind)
+# - web run: result success, 11 turns, 94 seconds
+# - report: runs/2026-09/r-20260918-1951-001.md
+# - report commit: 1747ad1, pushed to origin/main
+# - no other Brain paths changed
+#
+# The web session remained `active` with `worker_status: idle` after its success;
+# the work was finished, not still consuming turns. The private session id and
+# URL are deliberately not recorded in this repository.
+
+# Fetch did not complete on this Mac. The local /Users/calvin_dean0/second-brain
+# checkout and origin/main have different histories: the cloud clone saw the
+# Agent OS Brain seed at cd8903f, while the local checkout is the earlier notes/
+# derived-index design at 48bb41b with locally committed run reports. In
+# addition, the SSH remote fails host-key verification and `gh auth status`
+# reports an invalid saved login. Agent OS did not merge, pull, rewrite, or
+# reconcile those histories.

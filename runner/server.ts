@@ -4,10 +4,11 @@ import { join, resolve } from 'node:path';
 
 import { MODES, TOOL_IDS, type Mode, type RunRow, type StartRunBody, type ToolId } from '../shared/types.ts';
 import { ADAPTERS } from './adapters/index.ts';
-import { composeBrief } from './brief.ts';
+import { composeBrief, composeCloudLaunchBrief } from './brief.ts';
 import { fetchBrain, readBrain } from './brain.ts';
 import { isCodexTrusted, resolveRepo, type Config } from './config.ts';
 import { withLiveness, type LivenessProbe } from './liveness.ts';
+import { tryGit } from './git.ts';
 import { signalGroup, spawnRun, type SpawnRequest, type Spawned } from './process.ts';
 import { fileReport, reportPathFor } from './report.ts';
 import { isStopped, readStatus, STOP_FILE } from './status.ts';
@@ -153,25 +154,31 @@ export function createApp(deps: ServerDeps): express.Express {
 
     if (isStopped(root)) return refuse(409, `stopped: remove ${STOP_FILE} or press Resume`);
     if (!body.tool || !(TOOL_IDS as readonly string[]).includes(body.tool)) return refuse(400, `tool must be one of ${TOOL_IDS.join(', ')}`);
-    if (!body.mode || !(MODES as readonly string[]).includes(body.mode)) return refuse(400, `mode must be one of ${MODES.join(', ')}`);
+    const where = body.where ?? 'local';
+    if (where !== 'local' && where !== 'cloud') return refuse(400, 'where must be local or cloud');
+    if (where === 'cloud' && body.tool !== 'claude') return refuse(400, 'cloud runs are available for claude only');
+    const mode = where === 'cloud' ? 'read' : body.mode;
+    if (!mode || !(MODES as readonly string[]).includes(mode)) return refuse(400, `mode must be one of ${MODES.join(', ')}`);
     if (typeof body.brief !== 'string' || body.brief.trim() === '') return refuse(400, 'a brief is required');
-    if (typeof body.repo !== 'string' || body.repo === '') return refuse(400, 'a repo is required: a name from config, "brain", or an absolute path');
+    const repoArg = where === 'cloud' ? 'brain' : body.repo;
+    if (typeof repoArg !== 'string' || repoArg === '') return refuse(400, 'a repo is required: a name from config, "brain", or an absolute path');
+    if (where === 'cloud' && config.brain === null) return refuse(409, 'cloud runs need a configured Brain repository');
 
     const adapter = ADAPTERS[body.tool];
-    if (!adapter.modes.includes(body.mode)) return refuse(400, `${adapter.label} does not serve mode ${body.mode}`);
+    if (!adapter.modes.includes(mode)) return refuse(400, `${adapter.label} does not serve mode ${mode}`);
     const avail = adapter.detect();
     if (!avail.available) return refuse(409, `${adapter.label}: ${avail.why}`);
     if (body.tool === 'claude') {
       const login = status().tools.claude;
       if (!login.ok) return refuse(409, `Claude Code: ${login.detail}`);
     }
-    if (body.tool === 'codex' && body.mode === 'build' && !config.codexBuildVerified) {
+    if (body.tool === 'codex' && mode === 'build' && !config.codexBuildVerified) {
       return refuse(409, 'codex build is refused until a real `codex exec --worktree -s workspace-write` run has been watched to succeed; then set codexBuildVerified: true in .agent-os/config.json');
     }
-    const repo = resolveRepo(config, body.repo);
-    if (repo === null) return refuse(400, `unknown repo ${body.repo}`);
+    const repo = resolveRepo(config, repoArg);
+    if (repo === null) return refuse(400, `unknown repo ${repoArg}`);
     if (body.tool === 'codex' && !isCodexTrusted(config, repo)) {
-      return refuse(409, `Codex: ${repo} is not marked trusted. Open \`codex\` in that repo once and accept the trust prompt, then run \`npm run config:init -- --codex-trusted ${body.repo}\``);
+      return refuse(409, `Codex: ${repo} is not marked trusted. Open \`codex\` in that repo once and accept the trust prompt, then run \`npm run config:init -- --codex-trusted ${repoArg}\``);
     }
 
     const busy = store.byState('running').map((r) => withLiveness(r, probe)).find((r) => r.tool === body.tool && r.liveness === 'running');
@@ -186,19 +193,22 @@ export function createApp(deps: ServerDeps): express.Express {
 
     let cwd = repo;
     const row: RunRow = {
-      id, tool: body.tool, mode: body.mode, repo: body.repo, cwd, brief: body.brief, workflow: body.workflow ?? null,
+      id, tool: body.tool, mode, repo: repoArg, cwd, brief: body.brief, workflow: body.workflow ?? null,
       step: body.step ?? null, state: 'requested', pid: null, process_started_at: null, requested_at: requestedAt,
       started_at: null, ended_at: null, exit_code: null, log_path: logPath, report_path: reportPath, note: null, cancel_requested: 0,
     };
 
     try {
-      if (body.mode === 'build' && body.tool === 'claude') {
+      if (mode === 'build' && body.tool === 'claude') {
         cwd = buildWorktree(repo, id);
         assertNotProtected(cwd);
       }
-      const prompt = composeBrief({ runId: id, tool: body.tool, mode: body.mode, brain: config.brain, cwd, brief: body.brief, reportPath, workflow: row.workflow, step: row.step });
-      const spawnReq = adapter.command({ runId: id, mode: body.mode, cwd, brain: config.brain, prompt, reportPath, lastMessagePath });
-      writeFileSync(logPath, `# ${id} ${body.tool} ${body.mode} in ${cwd}\n# ${spawnReq.command} ${spawnReq.args.map((a) => (a.length > 80 ? a.slice(0, 77) + '…' : a)).join(' ')}\n`);
+      const runBrief = where === 'cloud'
+        ? composeCloudLaunchBrief(config.brain as string, tryGit(config.brain as string, ['remote', 'get-url', 'origin']), body.brief)
+        : body.brief;
+      const prompt = composeBrief({ runId: id, tool: body.tool, mode, brain: config.brain, cwd, brief: runBrief, reportPath, workflow: row.workflow, step: row.step });
+      const spawnReq = adapter.command({ runId: id, mode, cwd, brain: config.brain, prompt, reportPath, lastMessagePath, where });
+      writeFileSync(logPath, `# ${id} ${body.tool} ${mode} ${where} in ${cwd}\n# ${spawnReq.command} ${spawnReq.args.map((a) => (a.length > 80 ? a.slice(0, 77) + '…' : a)).join(' ')}\n`);
       const spawned = spawner(spawnReq, logPath);
       store.insert({ ...row, cwd, state: 'running', pid: spawned.pid, process_started_at: spawned.processStartedAt, started_at: now().toISOString() });
       void spawned.exited.then(({ code, signal }) => {

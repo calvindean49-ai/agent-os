@@ -7,6 +7,7 @@ export function StartForm({ status, preset, onStarted }: { status: StatusReport 
   const [tool, setTool] = useState<ToolId>('claude');
   const [mode, setMode] = useState<Mode>('read');
   const [repo, setRepo] = useState('brain');
+  const [where, setWhere] = useState<'local' | 'cloud'>('local');
   const [brief, setBrief] = useState('');
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -18,7 +19,7 @@ export function StartForm({ status, preset, onStarted }: { status: StatusReport 
   const repos = ['brain', ...Object.keys(status?.repos ?? {})];
   const submit = () => {
     setError(null);
-    const body = preset ? { tool, mode, repo, brief, workflow: preset.workflow, step: preset.step } : { tool, mode, repo, brief };
+    const body = preset ? { tool, mode, repo, brief, where, workflow: preset.workflow, step: preset.step } : { tool, mode, repo, brief, where };
     api.start(body).then((run) => { setBrief(''); onStarted(run); }).catch((e: Error) => setError(e.message));
   };
   return (
@@ -27,12 +28,20 @@ export function StartForm({ status, preset, onStarted }: { status: StatusReport 
         <option value="claude">claude</option>
         <option value="codex">codex</option>
       </select>
-      <select value={mode} onChange={(e) => setMode(e.target.value as Mode)}>
+      <select value={where} onChange={(e) => {
+        const next = e.target.value as 'local' | 'cloud';
+        setWhere(next);
+        if (next === 'cloud') { setTool('claude'); setMode('read'); setRepo('brain'); }
+      }}>
+        <option value="local">on this Mac</option>
+        <option value="cloud">Claude Code on the web</option>
+      </select>
+      <select value={mode} disabled={where === 'cloud'} onChange={(e) => setMode(e.target.value as Mode)}>
         <option value="read">read (no edits)</option>
         <option value="review">review (branch vs main)</option>
         <option value="build">build (branch in a worktree)</option>
       </select>
-      <select value={repo} onChange={(e) => setRepo(e.target.value)}>
+      <select value={repo} disabled={where === 'cloud'} onChange={(e) => setRepo(e.target.value)}>
         {repos.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <textarea value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Brief: what this run should do. One step, one tool." rows={3} />

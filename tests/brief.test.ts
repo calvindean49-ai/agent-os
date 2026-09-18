@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { composeBrief } from '../runner/brief.ts';
+import { composeBrief, composeCloudLaunchBrief } from '../runner/brief.ts';
 
 const base = { runId: 'r-9', tool: 'codex' as const, brain: '/b', cwd: '/r', brief: '  fix the thing  ', reportPath: '/b/runs/2026-09/r-9.md', workflow: null, step: null };
 
@@ -22,4 +22,12 @@ test('build brief tells the agent to report, commit and push', () => {
 
 test('no Brain is said, not hidden', () => {
   assert.match(composeBrief({ ...base, mode: 'read', brain: null }), /No Brain is configured/);
+});
+
+test('cloud launcher forbids APIs and recurring substitutes, and carries the real task', () => {
+  const prompt = composeCloudLaunchBrief('/brain', 'git@example.test:brain.git', 'do the thing');
+  assert.match(prompt, /RemoteTrigger/);
+  assert.match(prompt, /Never use curl.*API key/);
+  assert.match(prompt, /Do not create a recurring schedule/);
+  assert.ok(prompt.endsWith('do the thing'));
 });

@@ -14,6 +14,7 @@ export interface StartRequest {
   readonly reportPath: string;
   /** Where a read-only tool's last message is written by the tool itself, when it can. */
   readonly lastMessagePath: string;
+  readonly where?: 'local' | 'cloud';
 }
 
 export type RunOutcome = 'succeeded' | 'failed';

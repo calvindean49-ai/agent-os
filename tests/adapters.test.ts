@@ -27,6 +27,14 @@ test('claude build: bypassPermissions and nothing read-only', () => {
   assert.ok(!c.args.includes('--allowedTools'));
 });
 
+test('claude cloud launcher is read-only but can discover and use RemoteTrigger', () => {
+  const c = claude.command({ ...req, mode: 'read', where: 'cloud' });
+  const allowed = c.args[c.args.indexOf('--allowedTools') + 1] ?? '';
+  assert.match(allowed, /ToolSearch/);
+  assert.match(allowed, /RemoteTrigger/);
+  assert.ok(!c.args.includes('bypassPermissions'));
+});
+
 test('claude interpret: login failure named', () => {
   assert.match(claude.interpret(1, 'Please run /login').note, /not logged in/);
   assert.equal(claude.interpret(0, '').outcome, 'succeeded');
