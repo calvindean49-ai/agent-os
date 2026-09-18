@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Mode, RunView, StatusReport, ToolId } from '../../../shared/types.ts';
 import { api } from '../api.ts';
 
-export function StartForm({ status, preset, onStarted }: { status: StatusReport | null; preset?: { brief: string; workflow: string; step: number; tool: string }; onStarted: () => void }) {
+export function StartForm({ status, preset, onStarted }: { status: StatusReport | null; preset?: { brief: string; workflow: string; step: number; tool: string }; onStarted: (run: RunView) => void }) {
   const [tool, setTool] = useState<ToolId>('claude');
   const [mode, setMode] = useState<Mode>('read');
   const [repo, setRepo] = useState('brain');
@@ -19,7 +19,7 @@ export function StartForm({ status, preset, onStarted }: { status: StatusReport 
   const submit = () => {
     setError(null);
     const body = preset ? { tool, mode, repo, brief, workflow: preset.workflow, step: preset.step } : { tool, mode, repo, brief };
-    api.start(body).then(() => { setBrief(''); onStarted(); }).catch((e: Error) => setError(e.message));
+    api.start(body).then((run) => { setBrief(''); onStarted(run); }).catch((e: Error) => setError(e.message));
   };
   return (
     <div className="start">
@@ -61,7 +61,7 @@ export function Runs({ status }: { status: StatusReport | null }) {
   }, [open]);
   return (
     <section>
-      <StartForm status={status} onStarted={load} />
+      <StartForm status={status} onStarted={() => { void load(); }} />
       <table>
         <thead><tr><th>id</th><th>tool</th><th>mode</th><th>repo</th><th>state</th><th>brief</th><th>note</th><th /></tr></thead>
         <tbody>
