@@ -6,6 +6,8 @@ export interface Config {
   readonly brain: string | null;
   /** Named repos the Desk can start runs in. Absolute paths. */
   readonly repos: Readonly<Record<string, string>>;
+  /** Absolute checkout paths where an interactive Codex trust prompt has already been accepted or a real run succeeded. */
+  readonly codexTrusted: readonly string[];
   /** Flipped to true by hand, once a real `codex exec --worktree -s workspace-write` run has been watched to succeed. */
   readonly codexBuildVerified: boolean;
   readonly port: number;
@@ -17,11 +19,12 @@ export const DEFAULT_PORT = 8800;
 export function loadConfig(root: string): Config {
   const path = join(root, CONFIG_FILE);
   if (!existsSync(path)) {
-    return { brain: null, repos: {}, codexBuildVerified: false, port: DEFAULT_PORT };
+    return { brain: null, repos: {}, codexTrusted: [], codexBuildVerified: false, port: DEFAULT_PORT };
   }
   const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<{
     brain: string | null;
     repos: Record<string, string>;
+    codexTrusted: string[];
     codexBuildVerified: boolean;
     port: number;
   }>;
@@ -36,9 +39,14 @@ export function loadConfig(root: string): Config {
   return {
     brain: raw.brain ?? null,
     repos,
+    codexTrusted: (raw.codexTrusted ?? []).filter((p): p is string => typeof p === 'string' && isAbsolute(p)),
     codexBuildVerified: raw.codexBuildVerified === true,
     port: raw.port ?? DEFAULT_PORT,
   };
+}
+
+export function isCodexTrusted(config: Config, repo: string): boolean {
+  return config.codexTrusted.includes(repo);
 }
 
 /** Resolve a repo argument from a start request to a checkout path. */

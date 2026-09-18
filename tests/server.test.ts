@@ -16,7 +16,7 @@ const probe = { isAlive, startToken };
 async function up(config: Partial<Config> = {}, spawner = spawnRun) {
   const root = tmp('root-');
   const store = openStore(':memory:');
-  const app = createApp({ root, config: { brain: null, repos: {}, codexBuildVerified: false, port: 0, ...config }, token: 'T', store, probe, spawner });
+  const app = createApp({ root, config: { brain: null, repos: {}, codexTrusted: [], codexBuildVerified: false, port: 0, ...config }, token: 'T', store, probe, spawner, claudeLogin: () => ({ ok: true, detail: 'logged in' }) });
   const server = app.listen(0, '127.0.0.1');
   await new Promise((r) => server.once('listening', r));
   const port = (server.address() as { port: number }).port;
@@ -54,20 +54,48 @@ test('the door: no token, wrong token, right token', async () => {
   await s.close();
 });
 
-test('refusals: bad tool, bad mode, no brief, unknown repo, stop file, codex build unverified', async () => {
+test('refusals: bad tool, bad mode, no brief, unknown repo, untrusted codex, stop file, codex build unverified', async (t) => {
   const { dir } = repoWithCommit();
   const s = await up({ repos: { r: dir } });
+  t.mock.method(await import('../runner/adapters/codex.ts').then((m) => m.codex), 'detect', () => ({ available: true, detail: 'fake' }));
   assert.match((await s.call('POST', '/api/runs', { tool: 'gemini', mode: 'read', repo: 'r', brief: 'x' })).json['error'] as string, /tool must be/);
   assert.match((await s.call('POST', '/api/runs', { tool: 'claude', mode: 'fly', repo: 'r', brief: 'x' })).json['error'] as string, /mode must be/);
   assert.match((await s.call('POST', '/api/runs', { tool: 'claude', mode: 'read', repo: 'r', brief: ' ' })).json['error'] as string, /brief/);
   assert.match((await s.call('POST', '/api/runs', { tool: 'claude', mode: 'read', repo: 'nope', brief: 'x' })).json['error'] as string, /unknown repo/);
-  assert.match((await s.call('POST', '/api/runs', { tool: 'codex', mode: 'build', repo: 'r', brief: 'x' })).json['error'] as string, /codexBuildVerified|no `codex`/);
+  assert.match((await s.call('POST', '/api/runs', { tool: 'codex', mode: 'read', repo: 'r', brief: 'x' })).json['error'] as string, /not marked trusted/);
+  assert.match((await s.call('POST', '/api/runs', { tool: 'codex', mode: 'build', repo: 'r', brief: 'x' })).json['error'] as string, /codexBuildVerified/);
   await s.call('POST', '/api/stop');
   assert.equal((await s.call('GET', '/api/status')).json['stopped'], true);
   assert.match((await s.call('POST', '/api/runs', { tool: 'claude', mode: 'read', repo: 'r', brief: 'x' })).json['error'] as string, /stopped/);
   await s.call('POST', '/api/resume');
   assert.equal((await s.call('GET', '/api/status')).json['stopped'], false);
   await s.close();
+});
+
+test('status exposes per-repo trust and a logged-out Claude start is refused with the sign-in command', async (t) => {
+  const { dir } = repoWithCommit();
+  const root = tmp('root-');
+  const store = openStore(':memory:');
+  t.mock.method(await import('../runner/adapters/claude.ts').then((m) => m.claude), 'detect', () => ({ available: true, detail: 'fake' }));
+  const app = createApp({
+    root,
+    config: { brain: null, repos: { trusted: dir, waiting: '/waiting' }, codexTrusted: [dir], codexBuildVerified: false, port: 0 },
+    token: 'T',
+    store,
+    probe,
+    claudeLogin: () => ({ ok: false, detail: 'logged out; run `claude`, then `/login`' }),
+  });
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((r) => server.once('listening', r));
+  const port = (server.address() as { port: number }).port;
+  const request = (path: string, init?: RequestInit) => fetch(`http://127.0.0.1:${port}${path}`, { ...init, headers: { authorization: 'Bearer T', 'content-type': 'application/json' } });
+  const status = await (await request('/api/status')).json() as { tools: { claude: { ok: boolean } }; codexTrusted: Record<string, boolean> };
+  assert.equal(status.tools.claude.ok, false);
+  assert.deepEqual(status.codexTrusted, { trusted: true, waiting: false });
+  const start = await request('/api/runs', { method: 'POST', body: JSON.stringify({ tool: 'claude', mode: 'read', repo: 'trusted', brief: 'x' }) });
+  assert.equal(start.status, 409);
+  assert.match(await start.text(), /claude.*\/login/i);
+  await new Promise((r) => server.close(r));
 });
 
 test('dry run returns the exact adapter request without spawning or writing a row', async () => {
@@ -93,7 +121,7 @@ test('dry run returns the exact adapter request without spawning or writing a ro
 test('a run: starts, logs, ends succeeded, and the Runner files the report into the Brain and pushes', async (t) => {
   const brain = repoWithCommit(true);
   const { dir } = repoWithCommit();
-  const s = await up({ brain: brain.dir, repos: { r: dir } }, fakeSpawner('echo "hello from $0"; echo "last message" > "$(echo "$@" | sed -n "s/.*-o \\([^ ]*\\).*/\\1/p")"; exit 0'));
+  const s = await up({ brain: brain.dir, repos: { r: dir }, codexTrusted: [dir] }, fakeSpawner('echo "hello from $0"; echo "last message" > "$(echo "$@" | sed -n "s/.*-o \\([^ ]*\\).*/\\1/p")"; exit 0'));
   t.mock.method(await import('../runner/adapters/codex.ts').then((m) => m.codex), 'detect', () => ({ available: true, detail: 'fake' }));
   const started = await s.call('POST', '/api/runs', { tool: 'codex', mode: 'read', repo: 'r', brief: 'say hello' });
   assert.equal(started.status, 201, started.text);

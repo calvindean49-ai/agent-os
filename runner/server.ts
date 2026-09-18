@@ -6,7 +6,7 @@ import { MODES, TOOL_IDS, type Mode, type RunRow, type StartRunBody, type ToolId
 import { ADAPTERS } from './adapters/index.ts';
 import { composeBrief } from './brief.ts';
 import { fetchBrain, readBrain } from './brain.ts';
-import { resolveRepo, type Config } from './config.ts';
+import { isCodexTrusted, resolveRepo, type Config } from './config.ts';
 import { withLiveness, type LivenessProbe } from './liveness.ts';
 import { signalGroup, spawnRun, type SpawnRequest, type Spawned } from './process.ts';
 import { fileReport, reportPathFor } from './report.ts';
@@ -23,6 +23,7 @@ export interface ServerDeps {
   /** Injected so tests can start `sh` instead of a real tool. Defaults to spawnRun. */
   readonly spawner?: (req: SpawnRequest, logPath: string) => Spawned;
   readonly now?: () => Date;
+  readonly claudeLogin?: () => { readonly ok: boolean; readonly detail: string };
 }
 
 export const RUN_LOG_DIR = '.agent-os/runs';
@@ -44,6 +45,7 @@ export function createApp(deps: ServerDeps): express.Express {
   const { root, config, store, probe } = deps;
   const spawner = deps.spawner ?? spawnRun;
   const now = deps.now ?? (() => new Date());
+  const status = () => readStatus(root, config, deps.claudeLogin);
   const app = express();
   app.use(express.json({ limit: '256kb' }));
 
@@ -57,7 +59,7 @@ export function createApp(deps: ServerDeps): express.Express {
   });
 
   app.get('/api/status', (_req, res) => {
-    res.json(readStatus(root, config));
+    res.json(status());
   });
 
   app.get('/api/brain', (_req, res) => {
@@ -159,11 +161,18 @@ export function createApp(deps: ServerDeps): express.Express {
     if (!adapter.modes.includes(body.mode)) return refuse(400, `${adapter.label} does not serve mode ${body.mode}`);
     const avail = adapter.detect();
     if (!avail.available) return refuse(409, `${adapter.label}: ${avail.why}`);
+    if (body.tool === 'claude') {
+      const login = status().tools.claude;
+      if (!login.ok) return refuse(409, `Claude Code: ${login.detail}`);
+    }
     if (body.tool === 'codex' && body.mode === 'build' && !config.codexBuildVerified) {
       return refuse(409, 'codex build is refused until a real `codex exec --worktree -s workspace-write` run has been watched to succeed; then set codexBuildVerified: true in .agent-os/config.json');
     }
     const repo = resolveRepo(config, body.repo);
     if (repo === null) return refuse(400, `unknown repo ${body.repo}`);
+    if (body.tool === 'codex' && !isCodexTrusted(config, repo)) {
+      return refuse(409, `Codex: ${repo} is not marked trusted. Open \`codex\` in that repo once and accept the trust prompt, then run \`npm run config:init -- --codex-trusted ${body.repo}\``);
+    }
 
     const busy = store.byState('running').map((r) => withLiveness(r, probe)).find((r) => r.tool === body.tool && r.liveness === 'running');
     if (busy) return refuse(409, `${adapter.label} is busy with ${busy.id}; one run per tool at a time`);

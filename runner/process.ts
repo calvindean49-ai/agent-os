@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { openSync, closeSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -16,6 +16,30 @@ export interface Spawned {
   readonly pid: number;
   readonly processStartedAt: string | null;
   readonly exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+}
+
+export interface ProbeRequest extends SpawnRequest {
+  readonly timeoutMs: number;
+}
+
+/** A short synchronous preflight. Kept here so process.ts remains the Runner's only process boundary. */
+export function runProbe(req: ProbeRequest): { readonly ok: boolean; readonly output: string } {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of req.unsetEnv ?? []) delete env[k];
+  try {
+    const output = execFileSync(req.command, [...req.args], {
+      cwd: req.cwd,
+      env,
+      timeout: req.timeoutMs,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    return { ok: true, output };
+  } catch (error) {
+    const e = error as { stdout?: string | Buffer; stderr?: string | Buffer; message?: string };
+    const output = [e.stdout?.toString(), e.stderr?.toString(), e.message].filter(Boolean).join('\n').trim();
+    return { ok: false, output };
+  }
 }
 
 /**

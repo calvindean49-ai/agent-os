@@ -1,7 +1,8 @@
 /**
  * Write .agent-os/config.json without hand-editing JSON.
  *
- *   npm run config:init -- --brain /abs/second-brain --repo lockdown=/abs/Productivity --repo aether=/abs/aether-os
+ *   npm run config:init -- --brain /abs/second-brain --repo lockdown=/abs/Productivity
+ *   npm run config:init -- --codex-trusted lockdown --codex-build-verified
  *
  * Re-running merges: a repo given again is replaced, others are kept.
  */
@@ -12,8 +13,10 @@ const root = process.cwd();
 const path = join(root, '.agent-os', 'config.json');
 const current = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>) : {};
 const repos = { ...((current['repos'] as Record<string, string> | undefined) ?? {}) };
+const codexTrusted = new Set((current['codexTrusted'] as string[] | undefined) ?? []);
 let brain = (current['brain'] as string | undefined) ?? null;
 const args = process.argv.slice(2);
+const trust: string[] = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === '--brain') {
@@ -25,12 +28,19 @@ for (let i = 0; i < args.length; i++) {
     repos[spec.slice(0, eq)] = spec.slice(eq + 1);
   } else if (a === '--codex-build-verified') {
     current['codexBuildVerified'] = true;
+  } else if (a === '--codex-trusted') {
+    trust.push(args[++i] ?? '');
   }
 }
 for (const [k, v] of Object.entries({ brain, ...repos })) {
   if (v !== null && !isAbsolute(v)) { console.error(`${k}: ${v} is not an absolute path`); process.exit(2); }
 }
+for (const name of trust) {
+  const path = name === 'brain' ? brain : repos[name];
+  if (path === null || path === undefined) { console.error(`--codex-trusted wants "brain" or a configured repo name, got ${name}`); process.exit(2); }
+  codexTrusted.add(path);
+}
 mkdirSync(join(root, '.agent-os'), { recursive: true });
-const next = { ...current, brain, repos };
+const next = { ...current, brain, repos, codexTrusted: [...codexTrusted].sort() };
 writeFileSync(path, JSON.stringify(next, null, 2) + '\n');
 console.log(`wrote ${path}:\n${JSON.stringify(next, null, 2)}`);

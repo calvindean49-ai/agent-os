@@ -53,6 +53,8 @@ export interface StatusReport {
   readonly tools: Readonly<Record<ToolId, Probe & { readonly modes: readonly Mode[] }>>;
   readonly brain: Probe & { readonly path: string | null };
   readonly repos: Readonly<Record<string, string>>;
+  /** Codex trust is a deliberate per-checkout acknowledgement, keyed as the Desk names each repo. */
+  readonly codexTrusted: Readonly<Record<string, boolean>>;
   readonly stopped: boolean;
   readonly codexBuildVerified: boolean;
 }
@@ -94,6 +96,7 @@ export interface StartRunBody {
   /** A repo name from config, or an absolute path. "brain" means the Brain itself. */
   readonly repo: string;
   readonly brief: string;
+  readonly where?: 'local' | 'cloud';
   readonly workflow?: string;
   readonly step?: number;
 }

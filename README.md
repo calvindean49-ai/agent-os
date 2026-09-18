@@ -24,12 +24,15 @@ The handover for whoever finishes it: `AGENTS.md`.
 npm ci
 npm run brain:init -- /absolute/path/to/second-brain      # once; then add a remote and push
 npm run config:init -- --brain /absolute/path/to/second-brain --repo lockdown=/abs/Productivity
+npm run config:init -- --codex-trusted lockdown            # after accepting Codex trust in that checkout
 npm run dev                                               # Runner + Desk; open http://127.0.0.1:5180
 ```
 
 Preconditions the status strip checks for you: `git --version` works (on a Mac
 this needs the Xcode licence accepted: `sudo xcodebuild -license accept`),
-`claude` and `codex` on PATH and logged in, the Brain path is a git repo.
+`claude` and `codex` on PATH, Claude logged in, each Codex checkout explicitly
+marked trusted after its one-time interactive prompt, and the Brain path is a git repo.
+Claude login is checked with one short call and cached for five minutes.
 
 ## Verify
 

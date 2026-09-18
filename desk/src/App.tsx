@@ -43,6 +43,9 @@ export function App() {
             <>
               <Light ok={status.git.ok} label="git" detail={status.git.detail} />
               {Object.entries(status.tools).map(([id, p]) => <Light key={id} ok={p.ok} label={id} detail={p.detail} />)}
+              {Object.entries(status.codexTrusted).map(([repo, trusted]) => (
+                <Light key={`trust-${repo}`} ok={trusted} label={`codex:${repo}`} detail={trusted ? 'trusted checkout' : `untrusted — open codex in ${repo}, accept trust, then mark it in config`} />
+              ))}
               <Light ok={status.brain.ok} label="brain" detail={`${status.brain.detail} ${status.brain.path ?? ''}`} />
               <Light ok={!status.stopped} label={status.stopped ? 'stopped' : 'starting allowed'} detail="the stop file" />
               <button className="tiny" onClick={() => (status.stopped ? api.resume() : api.stop()).then(refresh)}>
