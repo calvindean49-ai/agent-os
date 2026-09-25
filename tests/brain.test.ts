@@ -34,6 +34,17 @@ test('readBrain reads INDEX, projects and the example workflow out of HEAD, and 
   assert.ok(b.unavailable.some((u) => /origin\/main/.test(u)));
 });
 
+test('readBrain lists only top-level project cards, excluding README and nested notes', () => {
+  const dir = seededBrain();
+  mkdirSync(join(dir, 'projects/demo/repo/docs'), { recursive: true });
+  for (const path of ['projects/demo.md', 'projects/README.md', 'projects/demo/note.md', 'projects/demo/repo/docs/X.md', 'projects/demo/README.md', 'projects/notes.txt']) {
+    writeFileSync(join(dir, path), '# Fixture\n');
+  }
+  git(dir, ['add', '-A']);
+  git(dir, ['commit', '-q', '-m', 'Add project card and nested documentation fixtures']);
+  assert.deepEqual(readBrain(dir).projects, ['agent-os', 'demo']);
+});
+
 test('readBrain reads origin/main, not the working tree', () => {
   const dir = seededBrain();
   const origin = tmp('origin-');

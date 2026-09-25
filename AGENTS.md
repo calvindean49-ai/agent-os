@@ -18,7 +18,7 @@ decisions are listed at the bottom and are Calvin's.
 8. **Tests are real:** they spawn real processes (`sh`), make real git repos in a temp dir, and never reach the network. `npm run verify` must be green before every commit. Do not mock what you can run.
 9. Commit messages say what was measured and why the change; do not put a model name in a commit.
 
-## What is built and verified (46 tests, tsc clean, Desk bundles)
+## What is built and verified (47 tests, tsc clean, Desk bundles)
 
 - `shared/types.ts` — the contract between Runner and Desk.
 - `runner/` — config (`.agent-os/config.json`), token door (`.agent-os/token`, 0600, no unset-means-open), SQLite store (`node:sqlite`, no native build), spawner with process groups and a start-time token, read-time liveness, adapters for `claude` and `codex`, brief composer, worktree guard, report filer, Brain reader, status probes, the HTTP server, and `reconcile()` for rows orphaned by a previous Runner.
@@ -52,7 +52,7 @@ Two external actions remain before the local Brain can follow the cloud result: 
 
 ```sh
 npm ci
-npm run verify        # tsc + 46 tests, ~3 s, no network
+npm run verify        # tsc + 47 tests, ~3 s, no network
 npm run build:desk    # Vite bundle
 npm run dev           # then http://127.0.0.1:5180
 ```

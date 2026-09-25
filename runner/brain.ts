@@ -57,7 +57,7 @@ export function readBrain(brain: string | null): BrainReading {
 
   const index = showFile(brain, ref, 'INDEX.md');
   const projects = listFiles(brain, ref, 'projects')
-    .filter((p) => p.endsWith('.md') && !p.endsWith('README.md'))
+    .filter((p) => /^projects\/[^/]+\.md$/.test(p) && p !== 'projects/README.md')
     .map((p) => p.replace(/^projects\//, '').replace(/\.md$/, ''));
   const workflows = listFiles(brain, ref, 'workflows')
     .filter((p) => p.endsWith('.md') && !p.endsWith('README.md'))
